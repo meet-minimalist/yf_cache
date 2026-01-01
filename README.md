@@ -6,14 +6,17 @@ A small package to download and cache Yahoo Finance data in monthly CSV chunks.
 
 Install directly from GitHub:
 
+```bash
 pip install git+https://github.com/meet-minimalist/yf_cache.git
-
+```
 Or from source:
 
+```bash
 pip install .
+```
 
 ## Usage
-
+```python
 from yf_cache import YFinanceDataDownloader
 
 # You can set the module log level at construction (e.g., 'DEBUG', 'INFO')
@@ -23,7 +26,7 @@ print(df.head())
 
 # Or set it later:
 # d.set_log_level('INFO')
-
+```
 ## License
 
 MIT
