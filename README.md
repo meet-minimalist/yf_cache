@@ -6,7 +6,7 @@ A small package to download and cache Yahoo Finance data in monthly CSV chunks.
 
 Install directly from GitHub:
 
-pip install git+https://github.com/<yourusername>/yf_cache.git
+pip install git+https://github.com/meet-minimalist/yf_cache.git
 
 Or from source:
 
