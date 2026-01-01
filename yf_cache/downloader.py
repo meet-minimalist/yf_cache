@@ -1,3 +1,11 @@
+'''
+ # @ Author: Meet Patel
+ # @ Create Time: 2026-01-01 10:12:35
+ # @ Modified by: Meet Patel
+ # @ Modified time: 2026-01-01 10:37:20
+ # @ Description:
+ '''
+
 import logging
 from pathlib import Path
 from datetime import datetime, timedelta
@@ -16,9 +24,29 @@ class YFinanceDataDownloader:
     Data is stored in monthly CSV files organized by ticker and interval.
     """
 
-    def __init__(self, cache_dir: str = "yfinance_data"):
+    def __init__(self, cache_dir: str = "yfinance_data", log_level: "str | int | None" = None):
         self.cache_dir = Path(cache_dir)
         self.cache_dir.mkdir(exist_ok=True)
+        # Apply requested log level if provided
+        self.set_log_level(log_level)
+
+    def set_log_level(self, level: "str | int | None"):
+        """Set the module logger level.
+
+        Accepts numeric levels (e.g., logging.DEBUG) or string names (e.g., 'DEBUG').
+        If level is None, leaves the current configuration.
+        """
+        if level is None:
+            return
+        if isinstance(level, str):
+            level = level.upper()
+            level = getattr(logging, level, None)
+            if not isinstance(level, int):
+                raise ValueError(f"Invalid log level: {level}")
+        logger.setLevel(level)
+        # Ensure there is at least a basic handler so logs are visible by default
+        if not logging.getLogger().handlers:
+            logging.basicConfig(level=level)
 
     def _get_cache_path(self, ticker: str, interval: str, year: int, month: int) -> Path:
         ticker_dir = self.cache_dir / ticker.upper() / interval
