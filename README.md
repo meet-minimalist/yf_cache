@@ -1,2 +1,25 @@
 # yf_cache
-Repo contains code to download data from yahoo finance and cache it in a particular directory for easy and faster access. It can be later used in other repos.
+
+A small package to download and cache Yahoo Finance data in monthly CSV chunks.
+
+## Installation
+
+Install directly from GitHub:
+
+pip install git+https://github.com/<yourusername>/yf_cache.git
+
+Or from source:
+
+pip install .
+
+## Usage
+
+from yf_cache import YFinanceDataDownloader
+
+d = YFinanceDataDownloader()
+df = d.get_data("AAPL", "2024-02-15", "2024-03-24", interval="1d")
+print(df.head())
+
+## License
+
+MIT
