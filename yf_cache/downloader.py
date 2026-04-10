@@ -107,8 +107,67 @@ class YFinanceDataDownloader:
             df = self._download_month_data(ticker, interval, year, month)
         return df
 
-    def get_data(self, ticker: str, start_date: "str | datetime", end_date: "str | datetime", interval: str = "1d") -> pd.DataFrame:
-        """Get stock data for a date range, using cache when available."""
+    def _validate_date_range(self, ticker: str, start_date: datetime, end_date: datetime, interval: str) -> bool:
+        """Validate that data is available for the entire date range.
+        
+        Downloads a small sample to check if the stock has data covering the full range.
+        Returns True if data is available for the entire range, False otherwise.
+        """
+        logger.info("Validating date range availability for %s from %s to %s", ticker, start_date.date(), end_date.date())
+        
+        try:
+            stock = yf.Ticker(ticker)
+            # Download the full range to check availability
+            df = stock.history(start=start_date, end=end_date + timedelta(days=1), interval=interval)
+            
+            if df.empty:
+                logger.warning("No data available for %s in the requested range", ticker)
+                return False
+            
+            # Get the actual data range
+            actual_start = df.index[0]
+            actual_end = df.index[-1]
+            
+            # Make timezone-aware for comparison
+            import pytz
+            if actual_start.tzinfo is None:
+                actual_start = pytz.UTC.localize(actual_start)
+            if actual_end.tzinfo is None:
+                actual_end = pytz.UTC.localize(actual_end)
+            
+            # Check if the actual range covers the requested range
+            # Allow small tolerance (3 days) for market holidays/weekends
+            tolerance = timedelta(days=3)
+            start_ok = (actual_start - start_date) <= tolerance
+            end_ok = (end_date - actual_end) <= tolerance
+            
+            if start_ok and end_ok:
+                logger.info("Full date range available for %s", ticker)
+                return True
+            else:
+                missing_parts = []
+                if not start_ok:
+                    missing_parts.append(f"start (available from {actual_start.date()})")
+                if not end_ok:
+                    missing_parts.append(f"end (available until {actual_end.date()})")
+                logger.warning("Partial data available for %s - missing %s", ticker, " and ".join(missing_parts))
+                return False
+                
+        except Exception as exc:
+            logger.error("Error validating date range for %s: %s", ticker, exc)
+            return False
+
+    def get_data(self, ticker: str, start_date: "str | datetime", end_date: "str | datetime", interval: str = "1d", validate_date_range: bool = False) -> pd.DataFrame:
+        """Get stock data for a date range, using cache when available.
+        
+        Args:
+            ticker: Stock ticker symbol
+            start_date: Start date (string or datetime)
+            end_date: End date (string or datetime)
+            interval: Data interval (e.g., "1d", "1h")
+            validate_date_range: If True, validates that data is available for the entire
+                date range before downloading. Returns empty DataFrame if partial data.
+        """
         # parse strings
         if isinstance(start_date, str):
             start_date = datetime.strptime(start_date, "%Y-%m-%d")
@@ -121,6 +180,12 @@ class YFinanceDataDownloader:
             start_date = pytz.UTC.localize(start_date)
         if end_date.tzinfo is None:
             end_date = pytz.UTC.localize(end_date)
+
+        # Validate date range if requested
+        if validate_date_range:
+            if not self._validate_date_range(ticker, start_date, end_date, interval):
+                logger.info("Date range validation failed for %s, returning empty DataFrame", ticker)
+                return pd.DataFrame()
 
         months_to_fetch = []
         current = datetime(start_date.year, start_date.month, 1)

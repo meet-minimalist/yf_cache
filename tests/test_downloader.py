@@ -52,3 +52,76 @@ def test_get_data_uses_fake_ticker(monkeypatch, tmp_path, sample_df):
     assert not df.empty
     assert df.index.min().date() >= datetime(2024, 2, 15).date()
     assert df.index.max().date() <= datetime(2024, 3, 1).date()
+
+
+def test_validate_date_range_success(monkeypatch, tmp_path):
+    """Test validation when full date range is available."""
+    idx = pd.date_range("2024-02-01", "2024-03-31", freq="B", tz="UTC")
+    full_df = pd.DataFrame({"Open": range(len(idx)), "Close": range(len(idx))}, index=idx)
+    fake = FakeTicker(full_df)
+
+    def fake_ticker_ctor(ticker):
+        return fake
+
+    monkeypatch.setattr("yf_cache.downloader.yf.Ticker", fake_ticker_ctor)
+
+    d = YFinanceDataDownloader(cache_dir=str(tmp_path))
+    result = d.get_data("AAPL", "2024-02-15", "2024-03-15", interval="1d", validate_date_range=True)
+    
+    # Should return data since validation passes
+    assert not result.empty
+
+
+def test_validate_date_range_partial_data(monkeypatch, tmp_path):
+    """Test validation fails when only partial data is available."""
+    # Stock only has data until 2024-02-20, but we request until 2024-03-15
+    idx = pd.date_range("2024-02-01", "2024-02-20", freq="B", tz="UTC")
+    partial_df = pd.DataFrame({"Open": range(len(idx)), "Close": range(len(idx))}, index=idx)
+    fake = FakeTicker(partial_df)
+
+    def fake_ticker_ctor(ticker):
+        return fake
+
+    monkeypatch.setattr("yf_cache.downloader.yf.Ticker", fake_ticker_ctor)
+
+    d = YFinanceDataDownloader(cache_dir=str(tmp_path))
+    result = d.get_data("AAPL", "2024-02-15", "2024-03-15", interval="1d", validate_date_range=True)
+    
+    # Should return empty DataFrame since validation fails
+    assert result.empty
+
+
+def test_validate_date_range_no_data(monkeypatch, tmp_path):
+    """Test validation fails when no data is available."""
+    empty_df = pd.DataFrame()
+    fake = FakeTicker(empty_df)
+
+    def fake_ticker_ctor(ticker):
+        return fake
+
+    monkeypatch.setattr("yf_cache.downloader.yf.Ticker", fake_ticker_ctor)
+
+    d = YFinanceDataDownloader(cache_dir=str(tmp_path))
+    result = d.get_data("NONEXISTENT", "2024-02-15", "2024-03-15", interval="1d", validate_date_range=True)
+    
+    # Should return empty DataFrame
+    assert result.empty
+
+
+def test_get_data_without_validation(monkeypatch, tmp_path):
+    """Test that validation is skipped when validate_date_range=False."""
+    # Partial data available
+    idx = pd.date_range("2024-02-01", "2024-02-20", freq="B", tz="UTC")
+    partial_df = pd.DataFrame({"Open": range(len(idx)), "Close": range(len(idx))}, index=idx)
+    fake = FakeTicker(partial_df)
+
+    def fake_ticker_ctor(ticker):
+        return fake
+
+    monkeypatch.setattr("yf_cache.downloader.yf.Ticker", fake_ticker_ctor)
+
+    d = YFinanceDataDownloader(cache_dir=str(tmp_path))
+    result = d.get_data("AAPL", "2024-02-15", "2024-03-15", interval="1d", validate_date_range=False)
+    
+    # Should return available data even though range is not fully covered
+    assert not result.empty
